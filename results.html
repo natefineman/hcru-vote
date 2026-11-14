@@ -12,8 +12,8 @@
 <body>
 <main>
   <header class="stack-s">
-    <h1>HCRÜ sticker results: the final five</h1>
-    <p class="lede">Live ranking of the five finalists. Each person counts once per pair, ten picks at most. <a href="round1.html">Round 1 results</a></p>
+    <h1>HCRÜ sticker results: the final round</h1>
+    <p class="lede">Live ranking of the fifteen finalists. Each person counts once per pair. Stickers 6 to 15 were added later, so they have fewer matchups. <a href="round1.html">Round 1 results</a></p>
   </header>
 
   <section class="stack-m">
@@ -32,8 +32,8 @@
 
 <script>
 (function(){
-  var N=5, L='abcde';
-  var NAMES=['Round 1 winner (No. 12)','Round 1 runner-up (No. 9)','Brackets, lowercase','Lowercase, heavy','Brackets, capitals'];
+  var N=15, L='abcdefghijklmno';
+  var NAMES=['1. Round 1 winner (No. 12)','2. Round 1 runner-up (No. 9)','3. Sid: brackets, lowercase, black','4. Lowercase, heavy','5. No. 12 in brackets','6. No. 9 on black','7. No. 9 in brackets','8. No. 9 in brackets, black','9. No. 9 lowercase in brackets, black','10. Thin and wide','11. Thin and wide, black','12. Heavy squared','13. Compact squared','14. Chamfered, black','15. No. 12 on black'];
   var SHEET='11CRZsgi-4AOgsLqMVMHACN01LFR98q4lLzRpPHoyaM0';
   var $=function(id){return document.getElementById(id)};
   var src=function(i){return 'final/f'+(i+1)+'.png'};
@@ -55,7 +55,7 @@
   function render(values){
     var taps={},games=[],won=[],lost=[],voters={},i,k;
     values.forEach(function(v){
-      var m=/^f:([a-z0-9]{8}):([a-e])>([a-e])$/.exec(String(v||'').trim());
+      var m=/^f:([a-z0-9]{8}):([a-o])>([a-o])$/.exec(String(v||'').trim());
       if(!m||m[2]===m[3])return;
       var key=m[1]+':'+(m[2]<m[3]?m[2]+m[3]:m[3]+m[2]);
       if(!taps[key])taps[key]=[L.indexOf(m[2]),L.indexOf(m[3])];
@@ -65,7 +65,7 @@
     var nv=Object.keys(voters).length,r=ratings(games),order=[];
     for(i=0;i<N;i++)order.push(i);
     order.sort(function(a,b){return r[b]-r[a]||a-b});
-    $('summary').textContent=games.length+(games.length===1?' pick':' picks')+' from '+nv+(nv===1?' person':' people')+(nv<15?'. Wait for at least 15 people before calling it.':'.');
+    $('summary').textContent=games.length+(games.length===1?' pick':' picks')+' from '+nv+(nv===1?' person':' people')+'.';
     var body=$('body');body.textContent='';
     order.forEach(function(s,n){
       var tr=document.createElement('tr');

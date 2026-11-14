@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>HCRÜ Sticker Vote</title>
-<meta property="og:title" content="HCRÜ sticker vote: the final five">
-<meta property="og:description" content="Five finalists, ten quick picks.">
+<meta property="og:title" content="HCRÜ sticker vote: the final round">
+<meta property="og:description" content="Pick between two stickers at a time. Twenty taps.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://natefineman.github.io/hcru-vote/">
 <meta property="og:image" content="https://natefineman.github.io/hcru-vote/og.png">
@@ -20,8 +20,8 @@
 <body>
 <main>
   <header class="stack-s">
-    <h1>HCRÜ sticker vote: the final five</h1>
-    <p class="lede">Five finalists, ten quick picks. Tap the one you would rather have on your laptop. Every tap is counted right away.</p>
+    <h1>HCRÜ sticker vote: the final round</h1>
+    <p class="lede">Fifteen finalists, ten of them new. Tap the one you would rather have on your laptop. Every tap is counted right away. Twenty picks is plenty.</p>
   </header>
 
   <section id="voting" aria-label="Pick one" class="stack-m">
@@ -30,49 +30,59 @@
       <button class="pick" id="right" type="button" aria-label="Pick the second sticker"><img id="rightImg" alt="Second sticker option" width="880" height="340"></button>
     </div>
     <div class="row">
-      <span class="status" id="status" role="status">Pick 1 of 10</span>
+      <span class="status" id="status" role="status">0 picks counted</span>
+      <span class="btns"><button class="btn" id="skip" type="button">Skip this pair</button></span>
     </div>
   </section>
 
   <section id="finished" class="panel" hidden>
-    <h2>That is all ten</h2>
-    <p>Your picks are counted. Thanks for voting.</p>
+    <h2>You have seen every pair</h2>
+    <p>That is all of them. Thanks for voting.</p>
   </section>
 </main>
 
 <script>
 (function(){
-  var N=5, L='abcde', MAXV=10;
+  var N=15, L='abcdefghijklmno', MAXV=105, GOAL=20;
   var LS='hcru-final-votes', LSID='hcru-voter', LSQ='hcru-final-queue';
   var ENDPOINT='https://docs.google.com/forms/d/e/1FAIpQLSdTnBgprXWNUp-s9Yi7QIIKC1S9fPhsV7ejbYg88wh_Ab8Tkg/formResponse', FIELD='entry.181190500';
   var $=function(id){return document.getElementById(id)};
   var src=function(i){return 'final/f'+(i+1)+'.png'};
-  var votes='', seen={}, cur=null, queue=[], sending=false, vid='';
+  var votes='', seen={}, counts=[], skipped={}, cur=null, queue=[], sending=false, vid='', session=0;
 
   function get(k){try{return localStorage.getItem(k)}catch(e){return null}}
   function set(k,v){try{localStorage.setItem(k,v)}catch(e){}}
   function pkey(a,b){return a<b?a*N+b:b*N+a}
   function valid(str){
-    if(typeof str!=='string'||str.length%2||str.length>MAXV*2||!/^[a-e]*$/.test(str))return false;
+    if(typeof str!=='string'||str.length%2||str.length>MAXV*2||!/^[a-o]*$/.test(str))return false;
     for(var i=0;i<str.length;i+=2){if(str[i]===str[i+1])return false}
     return true;
   }
   function applyVotes(str){
-    votes=str;seen={};
-    for(var i=0;i+1<str.length;i+=2)seen[pkey(L.indexOf(str[i]),L.indexOf(str[i+1]))]=1;
+    votes=str;seen={};counts=[];for(var i=0;i<N;i++)counts.push(0);
+    for(i=0;i+1<str.length;i+=2){var a=L.indexOf(str[i]),b=L.indexOf(str[i+1]);seen[pkey(a,b)]=1;counts[a]++;counts[b]++}
   }
+  /* Show the stickers this person has seen least, so new designs get covered first. */
   function nextPair(){
-    var open=[];
-    for(var a=0;a<N;a++)for(var b=a+1;b<N;b++){if(!seen[pkey(a,b)])open.push([a,b])}
-    if(!open.length)return null;
-    var p=open[Math.floor(Math.random()*open.length)];
+    var best=[],min=Infinity;
+    for(var a=0;a<N;a++)for(var b=a+1;b<N;b++){
+      var k=pkey(a,b);if(seen[k]||skipped[k])continue;
+      var s=counts[a]+counts[b];
+      if(s<min){min=s;best=[[a,b]]}else if(s===min){best.push([a,b])}
+    }
+    if(!best.length)return null;
+    var p=best[Math.floor(Math.random()*best.length)];
     return Math.random()<.5?p:[p[1],p[0]];
+  }
+  function statusText(){
+    var n=votes.length/2,t=n+(n===1?' pick counted':' picks counted');
+    if(session>=GOAL)t+='. That is plenty, thanks. Keep going if you like.';
+    $('status').textContent=t;
   }
   function show(){
     cur=nextPair();
     if(!cur){$('voting').hidden=true;$('finished').hidden=false;return}
     $('leftImg').src=src(cur[0]);$('rightImg').src=src(cur[1]);
-    $('status').textContent='Pick '+(votes.length/2+1)+' of '+MAXV;
   }
 
   /* Each tap is posted on its own. Anything that fails to send stays queued and is retried. */
@@ -86,21 +96,22 @@
   }
   function vote(w,l){
     if(votes.length/2>=MAXV||seen[pkey(w,l)])return;
-    applyVotes(votes+L[w]+L[l]);set(LS,votes);
+    applyVotes(votes+L[w]+L[l]);set(LS,votes);session++;
     queue.push('f:'+vid+':'+L[w]+'>'+L[l]);set(LSQ,JSON.stringify(queue));
-    flush();show();
+    statusText();flush();show();
   }
 
   $('left').addEventListener('click',function(){if(cur)vote(cur[0],cur[1])});
   $('right').addEventListener('click',function(){if(cur)vote(cur[1],cur[0])});
+  $('skip').addEventListener('click',function(){if(cur){skipped[pkey(cur[0],cur[1])]=1;show()}});
   window.addEventListener('online',flush);
 
   vid=get(LSID)||'';
   if(!/^[a-z0-9]{8}$/.test(vid)){var A='abcdefghijklmnopqrstuvwxyz0123456789';vid='';for(var i=0;i<8;i++)vid+=A[Math.floor(Math.random()*36)];set(LSID,vid)}
   var saved=get(LS)||'';
   applyVotes(valid(saved)?saved:'');
-  try{var q=JSON.parse(get(LSQ)||'[]');if(Array.isArray(q))queue=q.filter(function(x){return typeof x==='string'&&/^f:[a-z0-9]{8}:[a-e]>[a-e]$/.test(x)})}catch(e){}
-  show();flush();
+  try{var q=JSON.parse(get(LSQ)||'[]');if(Array.isArray(q))queue=q.filter(function(x){return typeof x==='string'&&/^f:[a-z0-9]{8}:[a-o]>[a-o]$/.test(x)})}catch(e){}
+  statusText();show();flush();
 })();
 </script>
 </body>
