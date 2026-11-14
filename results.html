@@ -169,7 +169,13 @@ a.btn{display:inline-flex;align-items:center;text-decoration:none}
   window.hcruData=function(resp){
     clearTimeout(timer);
     if(!resp||resp.status!=='ok'||!resp.table){$('summary').textContent='The votes sheet could not be read. Check that it is still shared for viewing.';return}
-    render(resp.table.rows.map(function(row){return row&&row.c&&row.c[0]?row.c[0].v:''}));
+    /* Column A is the time each pick reached the sheet, in the sheet's own clock (Eastern). Picks from 9:00 pm on are left out. */
+    var CUT=Date.UTC(2026,10,14,21,0,0);
+    render(resp.table.rows.map(function(row){
+      var c=row&&row.c||[],t=/^Date\((\d+),(\d+),(\d+),(\d+),(\d+),(\d+)\)$/.exec(c[0]&&c[0].v||'');
+      if(t&&Date.UTC(+t[1],+t[2],+t[3],+t[4],+t[5],+t[6])>=CUT)return '';
+      return c[1]?c[1].v:'';
+    }));
   };
   function load(){
     if(pending)pending.remove();
@@ -177,7 +183,7 @@ a.btn{display:inline-flex;align-items:center;text-decoration:none}
     clearTimeout(timer);
     timer=setTimeout(function(){$('summary').textContent='The votes are taking a while to load. Check your connection and tap Refresh.'},10000);
     pending=document.createElement('script');
-    pending.src='https://docs.google.com/spreadsheets/d/'+SHEET+'/gviz/tq?tqx=out:json;responseHandler:hcruData&headers=1&tq='+encodeURIComponent('select B')+'&t='+Date.now();
+    pending.src='https://docs.google.com/spreadsheets/d/'+SHEET+'/gviz/tq?tqx=out:json;responseHandler:hcruData&headers=1&tq='+encodeURIComponent('select A,B')+'&t='+Date.now();
     pending.onerror=function(){clearTimeout(timer);$('summary').textContent='The votes sheet could not be reached. Tap Refresh to try again.'};
     document.head.appendChild(pending);
   }

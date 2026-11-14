@@ -21,7 +21,7 @@
 <main>
   <header class="stack-s">
     <h1>HCRÜ sticker vote: the final round</h1>
-    <p class="lede">Fifteen finalists, ten of them new. Tap the one you would rather have on your laptop. Every tap is counted right away. Twenty picks is plenty.</p>
+    <p class="lede">Fifteen finalists, ten of them new. Tap the one you would rather have on your laptop. Every tap is counted right away. Twenty picks is plenty. Voting closes at 9:00 pm Eastern tonight.</p>
   </header>
 
   <section id="voting" aria-label="Pick one" class="stack-m">
@@ -33,6 +33,12 @@
       <span class="status" id="status" role="status">0 picks counted</span>
       <span class="btns"><button class="btn" id="skip" type="button">Skip this pair</button></span>
     </div>
+  </section>
+
+  <section id="closed" class="panel" hidden>
+    <h2>Voting is closed</h2>
+    <p>Voting closed at 9:00 pm Eastern on Saturday 14 November. Thanks to everyone who voted.</p>
+    <p><a class="btn solid" href="results.html" style="display:inline-flex;align-items:center;text-decoration:none">See the results</a></p>
   </section>
 
   <section id="finished" class="panel" hidden>
@@ -48,6 +54,10 @@
   var ENDPOINT='https://docs.google.com/forms/d/e/1FAIpQLSdTnBgprXWNUp-s9Yi7QIIKC1S9fPhsV7ejbYg88wh_Ab8Tkg/formResponse', FIELD='entry.181190500';
   var $=function(id){return document.getElementById(id)};
   var src=function(i){return 'final/f'+(i+1)+'.png'};
+  /* Voting closes at 9:00 pm Eastern on 14 Nov 2026, which is 02:00 UTC on the 15th. */
+  var CLOSE=Date.UTC(2026,10,15,2,0,0);
+  function closed(){return Date.now()>=CLOSE}
+  function shut(){cur=null;queue=[];set(LSQ,'[]');$('voting').hidden=true;$('finished').hidden=true;$('closed').hidden=false}
   var votes='', seen={}, counts=[], skipped={}, cur=null, queue=[], sending=false, vid='', session=0;
 
   function get(k){try{return localStorage.getItem(k)}catch(e){return null}}
@@ -87,7 +97,7 @@
 
   /* Each tap is posted on its own. Anything that fails to send stays queued and is retried. */
   function flush(){
-    if(sending||!queue.length)return;
+    if(sending||!queue.length||closed())return;
     sending=true;
     var body=new URLSearchParams();body.append(FIELD,queue[0]);
     fetch(ENDPOINT,{method:'POST',mode:'no-cors',body:body}).then(function(){
@@ -95,6 +105,7 @@
     },function(){sending=false;setTimeout(flush,5000)});
   }
   function vote(w,l){
+    if(closed()){shut();return}
     if(votes.length/2>=MAXV||seen[pkey(w,l)])return;
     applyVotes(votes+L[w]+L[l]);set(LS,votes);session++;
     queue.push('f:'+vid+':'+L[w]+'>'+L[l]);set(LSQ,JSON.stringify(queue));
@@ -111,7 +122,8 @@
   var saved=get(LS)||'';
   applyVotes(valid(saved)?saved:'');
   try{var q=JSON.parse(get(LSQ)||'[]');if(Array.isArray(q))queue=q.filter(function(x){return typeof x==='string'&&/^f:[a-z0-9]{8}:[a-o]>[a-o]$/.test(x)})}catch(e){}
-  statusText();show();flush();
+  statusText();
+  if(closed())shut();else{show();flush();var watch=setInterval(function(){if(closed()){clearInterval(watch);shut()}},15000)}
 })();
 </script>
 </body>
