@@ -18,6 +18,7 @@ main{max-width:860px;margin:0 auto;padding:28px 16px 56px;display:flex;flex-dire
 h1{font-family:var(--display);font-weight:400;font-size:30px;line-height:1.1;margin:0;letter-spacing:.01em;text-wrap:balance}
 h2{font-family:var(--display);font-weight:400;font-size:20px;margin:0}
 p{margin:0}
+a{color:var(--accent)}
 .stack-s{display:flex;flex-direction:column;gap:10px}
 .stack-m{display:flex;flex-direction:column;gap:14px}
 .lede{color:var(--muted);max-width:60ch}

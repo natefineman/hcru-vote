@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>HCRÜ Sticker Results, Round 1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600&family=Archivo+Black&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header class="stack-s">
+    <h1>HCRÜ sticker results, round 1</h1>
+    <p class="lede">Live ranking from every tap so far. Each person counts once per pair.</p>
+  </header>
+
+  <section class="stack-m">
+    <div class="row">
+      <p id="summary" class="status" role="status">Loading votes…</p>
+      <button class="btn" id="refresh" type="button">Refresh</button>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Rank</th><th>Sticker</th><th class="num">No.</th><th class="num">Rating</th><th class="num">Won</th><th class="num">Lost</th></tr></thead>
+        <tbody id="body"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+  var N=36, L='abcdefghijklmnopqrstuvwxyz0123456789';
+  var SHEET='11CRZsgi-4AOgsLqMVMHACN01LFR98q4lLzRpPHoyaM0';
+  var $=function(id){return document.getElementById(id)};
+  var src=function(i){return 'img/s'+(i<9?'0':'')+(i+1)+'.png'};
+
+  function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+  function ratings(games){
+    /* Elo, K=24, averaged over 40 shuffled orders so the result does not depend on vote order */
+    var P=40,sum=[],i,p,r,rand=rng(20261112);
+    for(i=0;i<N;i++)sum.push(0);
+    for(p=0;p<P;p++){
+      var g=games.slice();
+      for(i=g.length-1;i>0;i--){var j=Math.floor(rand()*(i+1)),t=g[i];g[i]=g[j];g[j]=t}
+      r=[];for(i=0;i<N;i++)r.push(1000);
+      g.forEach(function(m){var e=1/(1+Math.pow(10,(r[m[1]]-r[m[0]])/400)),d=24*(1-e);r[m[0]]+=d;r[m[1]]-=d});
+      for(i=0;i<N;i++)sum[i]+=r[i];
+    }
+    return sum.map(function(x){return x/P});
+  }
+  function render(values){
+    var taps={},games=[],won=[],lost=[],voters={},i,k;
+    values.forEach(function(v){
+      var m=/^([a-z0-9]{8}):([a-z0-9])>([a-z0-9])$/.exec(String(v||'').trim());
+      if(!m||m[2]===m[3])return;
+      var key=m[1]+':'+(m[2]<m[3]?m[2]+m[3]:m[3]+m[2]);
+      if(!taps[key])taps[key]=[L.indexOf(m[2]),L.indexOf(m[3])];
+    });
+    for(i=0;i<N;i++){won.push(0);lost.push(0)}
+    for(k in taps){games.push(taps[k]);won[taps[k][0]]++;lost[taps[k][1]]++;voters[k.slice(0,8)]=1}
+    var nv=Object.keys(voters).length,r=ratings(games),order=[];
+    for(i=0;i<N;i++)order.push(i);
+    order.sort(function(a,b){return r[b]-r[a]||a-b});
+    $('summary').textContent=games.length+(games.length===1?' vote':' votes')+' from '+nv+(nv===1?' person':' people')+(games.length<400?'. Rankings are rough until there are several hundred votes.':'.');
+    var body=$('body');body.textContent='';
+    order.forEach(function(s,n){
+      var tr=document.createElement('tr');
+      function td(text,cls){var c=document.createElement('td');if(cls)c.className=cls;c.textContent=text;tr.appendChild(c);return c}
+      td(String(n+1));
+      var c=td(''),sp=document.createElement('span'),im=document.createElement('img');
+      sp.className='thumb';im.src=src(s);im.alt='Sticker '+(s+1);im.width=150;im.height=58;im.loading='lazy';sp.appendChild(im);c.appendChild(sp);
+      td(String(s+1),'num');td(String(Math.round(r[s])),'num');td(String(won[s]),'num');td(String(lost[s]),'num');
+      body.appendChild(tr);
+    });
+  }
+
+  /* The responses sheet is read through its public query endpoint, loaded as a script. */
+  var pending=null,timer=null;
+  window.hcruData=function(resp){
+    clearTimeout(timer);
+    if(!resp||resp.status!=='ok'||!resp.table){$('summary').textContent='The votes sheet could not be read. Check that it is still shared for viewing.';return}
+    render(resp.table.rows.map(function(row){return row&&row.c&&row.c[0]?row.c[0].v:''}));
+  };
+  function load(){
+    if(pending)pending.remove();
+    $('summary').textContent='Loading votes…';
+    clearTimeout(timer);
+    timer=setTimeout(function(){$('summary').textContent='The votes are taking a while to load. Check your connection and tap Refresh.'},10000);
+    pending=document.createElement('script');
+    pending.src='https://docs.google.com/spreadsheets/d/'+SHEET+'/gviz/tq?tqx=out:json;responseHandler:hcruData&headers=1&tq='+encodeURIComponent('select B')+'&t='+Date.now();
+    pending.onerror=function(){clearTimeout(timer);$('summary').textContent='The votes sheet could not be reached. Tap Refresh to try again.'};
+    document.head.appendChild(pending);
+  }
+  $('refresh').addEventListener('click',load);
+  render([]);load();
+})();
+</script>
+</body>
+</html>
