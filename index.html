@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>HCRÜ Sticker Vote</title>
+<meta property="og:title" content="HCRÜ sticker vote">
+<meta property="og:description" content="Pick between two stickers at a time. Takes a minute.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://natefineman.github.io/hcru-vote/">
+<meta property="og:image" content="https://natefineman.github.io/hcru-vote/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600&family=Archivo+Black&display=swap">
 <link rel="stylesheet" href="style.css">
@@ -72,7 +80,11 @@
     if(!cur){$('voting').hidden=true;$('finished').hidden=false;return}
     $('leftImg').src=src(cur[0]);$('rightImg').src=src(cur[1]);
   }
-  function statusText(){var n=votes.length/2;$('status').textContent=n+(n===1?' vote counted':' votes counted')}
+  function statusText(){
+    var n=votes.length/2,t=n+(n===1?' vote counted':' votes counted');
+    if(n>=30)t+='. That is plenty, thanks. Keep going if you like.';
+    $('status').textContent=t;
+  }
 
   /* Each tap is posted on its own. Anything that fails to send stays queued and is retried. */
   function flush(){
