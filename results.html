@@ -17,12 +17,12 @@
 <main>
   <header class="stack-s">
     <h1>HCRÜ sticker results: the final round</h1>
-    <p class="lede">Live ranking of the fifteen finalists. Each person counts once per pair. Stickers 6 to 15 were added later, so they have fewer matchups. <a href="round1.html">Round 1 results</a></p>
+    <p class="lede">Ranking of the fifteen finalists. Each person counts once per pair. Stickers 6 to 15 were added later, so they have fewer matchups. <a href="round1.html">Round 1 results</a></p>
   </header>
 
   <section class="stack-s" aria-label="Current top three on a laptop">
     <canvas class="lid" id="lid" width="1220" height="680" role="img" aria-label="Back of a dark laptop on a red table"></canvas>
-    <p class="note" id="lidNote">The current top three will appear on the laptop once votes load.</p>
+    <p class="note" id="lidNote"></p>
   </section>
 
   <section class="stack-m">
@@ -30,7 +30,8 @@
       <p id="summary" class="status" role="status">Loading votes…</p>
       <button class="btn" id="refresh" type="button">Refresh</button>
     </div>
-    <div class="tablewrap">
+    <p id="sealed" hidden>The order is sealed until <strong>9:00 pm Eastern tonight</strong>, so nobody votes with the leader in mind. <span id="sealedLeft"></span> Voting is still open: <a href="./">cast your picks</a>.</p>
+    <div class="tablewrap" id="tablewrap">
       <table>
         <thead><tr><th>Rank</th><th>Sticker</th><th>Option</th><th class="num">Rating</th><th class="num">Won</th><th class="num">Lost</th><th class="num">Win rate</th></tr></thead>
         <tbody id="body"></tbody>
@@ -43,6 +44,9 @@
 (function(){
   var N=15, L='abcdefghijklmno';
   var NAMES=['1. Round 1 winner (No. 12)','2. Round 1 runner-up (No. 9)','3. Sid: brackets, lowercase, black','4. Lowercase, heavy','5. No. 12 in brackets','6. No. 9 on black','7. No. 9 in brackets','8. No. 9 in brackets, black','9. No. 9 lowercase in brackets, black','10. Thin and wide','11. Thin and wide, black','12. Heavy squared','13. Compact squared','14. Chamfered, black','15. No. 12 on black'];
+  /* The ranking stays hidden until the vote closes: 9:00 pm Eastern on 14 Nov 2026, which is 02:00 UTC on the 15th. */
+  var REVEAL=Date.UTC(2026,10,15,2,0,0);
+  function sealed(){return Date.now()<REVEAL}
   var SHEET='11CRZsgi-4AOgsLqMVMHACN01LFR98q4lLzRpPHoyaM0';
   var $=function(id){return document.getElementById(id)};
   var src=function(i){return 'final/f'+(i+1)+'.png'};
@@ -106,12 +110,12 @@
     g.drawImage(lidLayer,0,0);
   }
   function lid(top,ready){
-    var parts=top.map(function(s,i){return PLACES[i]+': '+NAMES[s].replace(/^\d+\. /,'')});
-    lidTop=ready?top:null;
+    var parts=top.map(function(s,i){return PLACES[i]+': '+NAMES[s].replace(/^\d+\. /,'')}),hide=sealed();
+    ready=ready&&!hide;lidTop=ready?top:null;
     if(ready)top.forEach(function(s){if(!lidImgs[s]){lidImgs[s]=new Image();lidImgs[s].onload=lidDraw;lidImgs[s].src=src(s)}});
     lidDraw();
-    $('lidNote').textContent=ready?'Current top three, at about 27 mm tall. '+parts.join('; ')+'.':'The current top three will appear on the laptop once votes load.';
-    $('lid').setAttribute('aria-label','Back of a dark laptop on a red table'+(ready?', with the current top three stickers on its lid. '+parts.join('; ')+'.':'.'));
+    $('lidNote').textContent=ready?'Top three, at about 27 mm tall. '+parts.join('; ')+'.':hide?'The top three go on this laptop at 9:00 pm Eastern tonight.':'The top three will appear on the laptop once votes load.';
+    $('lid').setAttribute('aria-label','Back of a dark laptop on a red table'+(ready?', with the top three stickers on its lid. '+parts.join('; ')+'.':'.'));
   }
   lidPhoto.onload=lidDraw;lidPhoto.src='laptop.jpg';
   function render(values){
@@ -130,6 +134,8 @@
     lid(order.slice(0,3),games.length>0);
     $('summary').textContent=games.length+(games.length===1?' pick':' picks')+' from '+nv+(nv===1?' person':' people')+'.';
     var body=$('body');body.textContent='';
+    $('sealed').hidden=!sealed();$('tablewrap').hidden=sealed();
+    if(sealed()){left();return}
     order.forEach(function(s,n){
       var tr=document.createElement('tr');
       function td(text,cls){var c=document.createElement('td');if(cls)c.className=cls;c.textContent=text;tr.appendChild(c);return c}
@@ -140,6 +146,15 @@
       var t=won[s]+lost[s];td(t?Math.round(100*won[s]/t)+'%':'',' num'.trim());
       body.appendChild(tr);
     });
+  }
+
+  function left(){
+    var m=Math.ceil((REVEAL-Date.now())/60000),h=Math.floor(m/60);
+    $('sealedLeft').textContent=m>0?'That is in '+(h?h+' h ':'')+(m%60)+' min.':'';
+  }
+  /* Keep the countdown fresh, and reveal on the minute without needing a reload. */
+  if(sealed()){
+    var tick=setInterval(function(){if(sealed())left();else{clearInterval(tick);load()}},15000);
   }
 
   /* The responses sheet is read through its public query endpoint, loaded as a script. */
