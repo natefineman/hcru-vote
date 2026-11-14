@@ -51,3 +51,9 @@ textarea{width:100%;min-height:110px;font:15px ui-monospace,SFMono-Regular,Menlo
 textarea:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
 label{font-weight:600}
 [hidden]{display:none !important}
+
+/* Results page: the laptop photo with the top three stickers laid on its lid. The stage is a fixed 1220 x 680 and is scaled to fit. */
+.lid{position:relative;width:100%;aspect-ratio:1220/680;overflow:hidden;border-radius:14px;background:var(--card)}
+.lid-stage{position:absolute;left:0;top:0;width:1220px;height:680px;transform-origin:0 0}
+.lid-photo{display:block;width:1220px;height:680px}
+.lid-sticker{position:absolute;left:0;top:0;width:880px;height:340px;max-width:none;transform-origin:0 0;filter:brightness(.8) blur(.6px)}
