@@ -13,7 +13,7 @@
 <main>
   <header class="stack-s">
     <h1>HCRÜ sticker vote</h1>
-    <p class="lede">Two stickers at a time. Tap the one you would rather have on your laptop. Go with your gut. Do at least 30, then send your votes in.</p>
+    <p class="lede">Two stickers at a time. Tap the one you would rather have on your laptop. Go with your gut. Every tap is counted right away, so do as many as you like and close the page whenever.</p>
   </header>
 
   <section id="voting" aria-label="Pick one" class="stack-m">
@@ -25,33 +25,27 @@
       <span class="status" id="status" role="status">0 votes</span>
       <span class="btns">
         <button class="btn" id="skip" type="button">Skip this pair</button>
-        <button class="btn solid" id="done" type="button">Send my votes</button>
       </span>
     </div>
   </section>
 
   <section id="finished" class="panel" hidden>
-    <h2 id="finTitle">Send your votes to Nate</h2>
-    <p id="finMsg"></p>
-    <div id="codeBox" class="stack-s">
-      <div class="code" id="code"></div>
-      <span class="btns">
-        <button class="btn solid" id="share" type="button">Text my votes</button>
-        <button class="btn" id="copy" type="button">Copy code</button>
-        <span class="note" id="copyMsg" role="status"></span>
-      </span>
-    </div>
-    <div><button class="btn" id="more" type="button">Keep voting</button></div>
+    <h2>You have seen every pair</h2>
+    <p id="finMsg">That is all of them. Thanks for voting.</p>
   </section>
 </main>
 
 <script>
 (function(){
-  var N=36, L='abcdefghijklmnopqrstuvwxyz0123456789', MAXV=500, LS='hcru-sticker-votes';
+  var N=36, L='abcdefghijklmnopqrstuvwxyz0123456789', MAXV=630;
+  var LS='hcru-sticker-votes', LSID='hcru-voter', LSQ='hcru-queue';
+  var ENDPOINT='https://docs.google.com/forms/d/e/1FAIpQLSdTnBgprXWNUp-s9Yi7QIIKC1S9fPhsV7ejbYg88wh_Ab8Tkg/formResponse', FIELD='entry.181190500';
   var $=function(id){return document.getElementById(id)};
   var src=function(i){return 'img/s'+(i<9?'0':'')+(i+1)+'.png'};
-  var votes='', seen={}, counts=[], skipped={}, cur=null;
+  var votes='', seen={}, counts=[], skipped={}, cur=null, queue=[], sending=false, vid='';
 
+  function get(k){try{return localStorage.getItem(k)}catch(e){return null}}
+  function set(k,v){try{localStorage.setItem(k,v)}catch(e){}}
   function pkey(a,b){return a<b?a*N+b:b*N+a}
   function valid(str){
     if(typeof str!=='string'||str.length%2||str.length>MAXV*2||!/^[a-z0-9]*$/.test(str))return false;
@@ -75,50 +69,43 @@
   }
   function show(){
     cur=nextPair();
-    if(!cur){finish(true);return}
+    if(!cur){$('voting').hidden=true;$('finished').hidden=false;return}
     $('leftImg').src=src(cur[0]);$('rightImg').src=src(cur[1]);
   }
-  function statusText(){var n=votes.length/2;$('status').textContent=n+(n===1?' vote':' votes')}
-  function vote(w,l){
-    if(votes.length/2>=MAXV){finish(true);return}
-    applyVotes(votes+L[w]+L[l]);
-    try{localStorage.setItem(LS,votes)}catch(e){}
-    statusText();show();
+  function statusText(){var n=votes.length/2;$('status').textContent=n+(n===1?' vote counted':' votes counted')}
+
+  /* Each tap is posted on its own. Anything that fails to send stays queued and is retried. */
+  function flush(){
+    if(sending||!queue.length)return;
+    sending=true;
+    var item=queue[0],body=new URLSearchParams();body.append(FIELD,item);
+    fetch(ENDPOINT,{method:'POST',mode:'no-cors',body:body}).then(function(){
+      queue.shift();set(LSQ,JSON.stringify(queue));sending=false;flush();
+    },function(){sending=false;setTimeout(flush,5000)});
   }
-  function codeText(){return 'HCRU-'+votes}
-  function finish(allDone){
-    var n=votes.length/2;
-    $('voting').hidden=true;$('finished').hidden=false;
-    $('more').hidden=!!allDone||!nextPair();
-    $('copyMsg').textContent='';
-    if(!n){
-      $('finTitle').textContent='No votes yet';
-      $('finMsg').textContent='Pick a few pairs first, then come back here to send them.';
-      $('codeBox').hidden=true;return;
-    }
-    $('finTitle').textContent='Send your votes to Nate';
-    $('finMsg').textContent='Your '+n+(n===1?' vote is':' votes are')+' packed into the code below. Text it to Nate so it gets counted. Nothing is sent until you do.';
-    $('code').textContent=codeText();$('codeBox').hidden=false;
-    $('share').hidden=!navigator.share;
+  function vote(w,l){
+    if(votes.length/2>=MAXV)return;
+    applyVotes(votes+L[w]+L[l]);set(LS,votes);
+    queue.push(vid+':'+L[w]+'>'+L[l]);set(LSQ,JSON.stringify(queue));
+    statusText();flush();show();
   }
 
   $('left').addEventListener('click',function(){if(cur)vote(cur[0],cur[1])});
   $('right').addEventListener('click',function(){if(cur)vote(cur[1],cur[0])});
   $('skip').addEventListener('click',function(){if(cur){skipped[pkey(cur[0],cur[1])]=1;show()}});
-  $('done').addEventListener('click',function(){finish(false)});
-  $('more').addEventListener('click',function(){$('finished').hidden=true;$('voting').hidden=false;show()});
-  $('share').addEventListener('click',function(){
-    try{navigator.share({text:'My HCRÜ sticker votes: '+codeText()}).catch(function(){})}catch(e){$('copyMsg').textContent='Sharing is not available here. Copy the code instead.'}
-  });
-  $('copy').addEventListener('click',function(){
-    var ok=function(){$('copyMsg').textContent='Copied. Now paste it in a text to Nate.'}, fail=function(){$('copyMsg').textContent='Could not copy. Press and hold the code to select it.'};
-    try{navigator.clipboard.writeText(codeText()).then(ok,fail)}catch(e){fail()}
-  });
+  window.addEventListener('online',flush);
 
-  var saved='';
-  try{saved=localStorage.getItem(LS)||''}catch(e){}
+  vid=get(LSID)||'';
+  if(!/^[a-z0-9]{8}$/.test(vid)){vid='';for(var i=0;i<8;i++)vid+=L[Math.floor(Math.random()*36)];set(LSID,vid)}
+  var saved=get(LS)||'';
   applyVotes(valid(saved)?saved:'');
-  statusText();show();
+  try{var q=JSON.parse(get(LSQ)||'[]');if(Array.isArray(q))queue=q.filter(function(x){return typeof x==='string'&&/^[a-z0-9]{8}:[a-z0-9]>[a-z0-9]$/.test(x)})}catch(e){}
+  /* votes cast before taps were sent automatically: queue them once */
+  if(!get('hcru-synced')){
+    for(var j=0;j+1<votes.length;j+=2)queue.push(vid+':'+votes[j]+'>'+votes[j+1]);
+    set(LSQ,JSON.stringify(queue));set('hcru-synced','1');
+  }
+  statusText();show();flush();
 })();
 </script>
 </body>

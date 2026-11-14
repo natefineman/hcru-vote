@@ -13,15 +13,15 @@
 <main>
   <header class="stack-s">
     <h1>HCRÜ sticker results</h1>
-    <p class="lede">Paste the vote codes people text you. You can paste whole messages, several at once. Ballots are kept in this browser only, so tally on one device.</p>
+    <p class="lede">Open the responses sheet, copy the whole "tap" column, and paste it here. Pasting again later is fine: taps already counted are skipped.</p>
   </header>
 
   <section class="stack-s">
-    <label for="paste">Vote codes</label>
-    <textarea id="paste" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="My HCRÜ sticker votes: HCRU-..."></textarea>
+    <label for="paste">Taps from the sheet</label>
+    <textarea id="paste" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="k3f9x2ab:a>j"></textarea>
     <span class="btns">
-      <button class="btn solid" id="add" type="button">Add ballots</button>
-      <button class="btn" id="clear" type="button">Remove all ballots</button>
+      <button class="btn solid" id="add" type="button">Count these taps</button>
+      <button class="btn" id="clear" type="button">Start over</button>
       <span class="note" id="msg" role="status"></span>
     </span>
   </section>
@@ -40,17 +40,11 @@
 
 <script>
 (function(){
-  var N=36, L='abcdefghijklmnopqrstuvwxyz0123456789', MAXV=500, LS='hcru-sticker-ballots';
+  var N=36, L='abcdefghijklmnopqrstuvwxyz0123456789', LS='hcru-sticker-taps';
   var $=function(id){return document.getElementById(id)};
   var src=function(i){return 'img/s'+(i<9?'0':'')+(i+1)+'.png'};
-  var ballots=[];
+  var taps={}; /* key: voter + unordered pair -> "w>l"; one tap per voter per pair */
 
-  function valid(str){
-    if(typeof str!=='string'||!str||str.length%2||str.length>MAXV*2||!/^[a-z0-9]*$/.test(str))return false;
-    for(var i=0;i<str.length;i+=2){if(str[i]===str[i+1])return false}
-    return true;
-  }
-  function parse(str){var out=[];for(var i=0;i+1<str.length;i+=2){out.push([L.indexOf(str[i]),L.indexOf(str[i+1])])}return out}
   function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
   function ratings(games){
     /* Elo, K=24, averaged over 40 shuffled orders so the result does not depend on vote order */
@@ -65,20 +59,20 @@
     }
     return sum.map(function(x){return x/P});
   }
-  function save(){try{localStorage.setItem(LS,JSON.stringify(ballots))}catch(e){}}
+  function save(){try{localStorage.setItem(LS,JSON.stringify(taps))}catch(e){}}
   function render(){
-    var games=[],won=[],lost=[],i;
+    var games=[],won=[],lost=[],voters={},i,k;
     for(i=0;i<N;i++){won.push(0);lost.push(0)}
-    ballots.forEach(function(b){parse(b).forEach(function(m){games.push(m);won[m[0]]++;lost[m[1]]++})});
-    var r=ratings(games),order=[];
+    for(k in taps){var w=L.indexOf(taps[k][0]),l=L.indexOf(taps[k][2]);games.push([w,l]);won[w]++;lost[l]++;voters[k.split(':')[0]]=1}
+    var nv=Object.keys(voters).length,r=ratings(games),order=[];
     for(i=0;i<N;i++)order.push(i);
     order.sort(function(a,b){return r[b]-r[a]||a-b});
-    $('summary').textContent=games.length+(games.length===1?' vote':' votes')+' from '+ballots.length+(ballots.length===1?' ballot':' ballots')+(games.length<400?'. Rankings are rough until there are several hundred votes.':'.');
+    $('summary').textContent=games.length+(games.length===1?' vote':' votes')+' from '+nv+(nv===1?' person':' people')+(games.length<400?'. Rankings are rough until there are several hundred votes.':'.');
     var body=$('body');body.textContent='';
-    order.forEach(function(s,k){
+    order.forEach(function(s,n){
       var tr=document.createElement('tr');
       function td(text,cls){var c=document.createElement('td');if(cls)c.className=cls;c.textContent=text;tr.appendChild(c);return c}
-      td(String(k+1));
+      td(String(n+1));
       var c=td(''),sp=document.createElement('span'),im=document.createElement('img');
       sp.className='thumb';im.src=src(s);im.alt='Sticker '+(s+1);im.width=150;im.height=58;im.loading='lazy';sp.appendChild(im);c.appendChild(sp);
       td(String(s+1),'num');td(String(Math.round(r[s])),'num');td(String(won[s]),'num');td(String(lost[s]),'num');
@@ -87,33 +81,22 @@
   }
 
   $('add').addEventListener('click',function(){
-    var text=$('paste').value,re=/HCRU-([a-z0-9]+)/gi,m,added=0,dupes=0,bad=0;
+    var text=$('paste').value,re=/(?:^|[^a-z0-9])([a-z0-9]{8}):([a-z0-9])>([a-z0-9])(?![a-z0-9])/g,m,added=0,dupes=0;
     while((m=re.exec(text))){
-      var code=m[1].toLowerCase();
-      if(!valid(code)){bad++;continue}
-      /* a longer code from the same person replaces their shorter one */
-      var replaced=false;
-      for(var i=0;i<ballots.length;i++){
-        if(ballots[i]===code){dupes++;replaced=true;break}
-        if(code.indexOf(ballots[i])===0){ballots[i]=code;added++;replaced=true;break}
-        if(ballots[i].indexOf(code)===0){dupes++;replaced=true;break}
-      }
-      if(!replaced){ballots.push(code);added++}
+      if(m[2]===m[3])continue;
+      var pair=m[2]<m[3]?m[2]+m[3]:m[3]+m[2],key=m[1]+':'+pair;
+      if(taps[key]){dupes++}else{taps[key]=m[2]+'>'+m[3];added++}
     }
-    var parts=[];
-    if(added)parts.push('Added '+added+'.');
-    if(dupes)parts.push(dupes+' already counted.');
-    if(bad)parts.push(bad+' could not be read.');
-    $('msg').textContent=parts.length?parts.join(' '):'No vote codes found. Each one starts with HCRU-.';
+    $('msg').textContent=added||dupes?('Added '+added+(dupes?', skipped '+dupes+' already counted':'')+'.'):'No taps found. Copy the tap column from the responses sheet.';
     if(added){$('paste').value='';save();render()}
   });
   var armed=false;
   $('clear').addEventListener('click',function(){
-    if(!armed){armed=true;this.textContent='Tap again to remove all';return}
-    armed=false;this.textContent='Remove all ballots';ballots=[];save();render();$('msg').textContent='All ballots removed.';
+    if(!armed){armed=true;this.textContent='Tap again to clear everything';return}
+    armed=false;this.textContent='Start over';taps={};save();render();$('msg').textContent='Cleared.';
   });
 
-  try{var s=JSON.parse(localStorage.getItem(LS)||'[]');if(Array.isArray(s))ballots=s.filter(valid)}catch(e){}
+  try{var s=JSON.parse(localStorage.getItem(LS)||'{}');if(s&&typeof s==='object'&&!Array.isArray(s))taps=s}catch(e){}
   render();
 })();
 </script>
