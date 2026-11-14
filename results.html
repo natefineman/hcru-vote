@@ -8,6 +8,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600&family=Archivo+Black&display=swap">
 <link rel="stylesheet" href="style.css">
+<style>
+/* The laptop picture with the top three stickers drawn on its lid. It is one canvas, so it scales like an image. */
+.lid{display:block;width:100%;height:auto;border-radius:14px;background:var(--card)}
+</style>
 </head>
 <body>
 <main>
@@ -17,14 +21,7 @@
   </header>
 
   <section class="stack-s" aria-label="Current top three on a laptop">
-    <div class="lid" id="lid">
-      <div class="lid-stage" id="lidStage">
-        <img class="lid-photo" src="laptop.jpg" alt="Back of a dark laptop on a red table" width="1220" height="680">
-        <img class="lid-sticker" id="lid0" alt="" width="880" height="340" hidden>
-        <img class="lid-sticker" id="lid1" alt="" width="880" height="340" hidden>
-        <img class="lid-sticker" id="lid2" alt="" width="880" height="340" hidden>
-      </div>
-    </div>
+    <canvas class="lid" id="lid" width="1220" height="680" role="img" aria-label="Back of a dark laptop on a red table"></canvas>
     <p class="note" id="lidNote">The current top three will appear on the laptop once votes load.</p>
   </section>
 
@@ -64,34 +61,59 @@
     }
     return sum.map(function(x){return x/P});
   }
-  /* Top three on the laptop photo. Nothing here is drawn by hand or by a model: each sticker file is placed
-     with a fixed perspective transform, so the same ranking always gives the same picture.
+  /* Top three on the laptop photo. Nothing here is drawn by hand or by a model: each sticker file is laid on the
+     lid with a fixed perspective mapping, so the same ranking always gives the same picture. It is drawn on a
+     canvas, a small grid of triangles per sticker, because browsers disagree about CSS perspective transforms.
      LID maps lid millimetres (304 x 215, origin at the lid's top left) to pixels in laptop.jpg (1220 x 680).
      It comes from the lid's four corners in the photo: (152,94.4) (1077.6,97.6) (1034.4,584) (292,529.6).
      BOX is each sticker's body inside its 880 x 340 file: [left, top, width, height]. */
   var LID=[2.5768208,0.97587498,152,-0.031853608,2.6131161,94.4,-0.00043422054,0.001112028,1];
   var BOX=[[51,53,778,235],[108,53,664,235],[190,53,500,235],[152,53,576,235],[22,53,836,235],[108,53,664,235],[22,53,836,235],[22,53,836,235],[90,53,700,235],[79,53,722,235],[79,53,722,235],[100,53,680,235],[150,53,580,235],[167,53,546,235],[51,53,778,235]];
   var STICKER_MM=27, PLACES=['1st, top left','2nd, top right','3rd, bottom left'];
-  function lidMatrix(s,slot){
-    var b=BOX[s],k=STICKER_MM/b[3],w=b[2]*k,x0=slot===1?282-w:22,y0=slot===2?166:20;
-    /* file pixels -> millimetres on the lid */
-    var S=[k,0,x0-b[0]*k, 0,k,y0-b[1]*k, 0,0,1],M=[],r,c;
-    for(r=0;r<3;r++)for(c=0;c<3;c++)M.push(LID[r*3]*S[c]+LID[r*3+1]*S[3+c]+LID[r*3+2]*S[6+c]);
-    return 'matrix3d('+[M[0],M[3],0,M[6], M[1],M[4],0,M[7], 0,0,1,0, M[2],M[5],0,M[8]].join(',')+')';
+  var lidPhoto=new Image(), lidImgs={}, lidTop=null, lidLayer=document.createElement('canvas');
+  lidLayer.width=1220;lidLayer.height=680;
+  function lidPoint(x,y){var w=LID[6]*x+LID[7]*y+1;return [(LID[0]*x+LID[1]*y+LID[2])/w,(LID[3]*x+LID[4]*y+LID[5])/w]}
+  /* Draw the triangle a,b,c of the sticker file onto the triangle A,B,C of the photo. */
+  function lidTri(g,img,a,b,c,A,B,C){
+    var d=(b[0]-a[0])*(c[1]-a[1])-(c[0]-a[0])*(b[1]-a[1]);
+    var m11=((B[0]-A[0])*(c[1]-a[1])-(C[0]-A[0])*(b[1]-a[1]))/d, m21=((C[0]-A[0])*(b[0]-a[0])-(B[0]-A[0])*(c[0]-a[0]))/d;
+    var m12=((B[1]-A[1])*(c[1]-a[1])-(C[1]-A[1])*(b[1]-a[1]))/d, m22=((C[1]-A[1])*(b[0]-a[0])-(B[1]-A[1])*(c[0]-a[0]))/d;
+    var cx=(A[0]+B[0]+C[0])/3, cy=(A[1]+B[1]+C[1])/3;
+    function out(P){var dx=P[0]-cx,dy=P[1]-cy,n=Math.sqrt(dx*dx+dy*dy)||1;return [P[0]+dx/n,P[1]+dy/n]} /* 1px overlap hides seams */
+    var p=out(A),q=out(B),r=out(C);
+    g.save();g.beginPath();g.moveTo(p[0],p[1]);g.lineTo(q[0],q[1]);g.lineTo(r[0],r[1]);g.closePath();g.clip();
+    g.setTransform(m11,m12,m21,m22,A[0]-m11*a[0]-m21*a[1],A[1]-m12*a[0]-m22*a[1]);g.drawImage(img,0,0);g.restore();
+  }
+  function lidSticker(g,s,slot){
+    var img=lidImgs[s],b=BOX[s],k=STICKER_MM/b[3],x0=slot===1?282-b[2]*k:22,y0=slot===2?166:20,NX=10,NY=4,i,j;
+    function src(u,v){return [b[0]+b[2]*u/NX,b[1]+b[3]*v/NY]}
+    function dst(u,v){return lidPoint(x0+b[2]*k*u/NX,y0+STICKER_MM*v/NY)}
+    for(j=0;j<NY;j++)for(i=0;i<NX;i++){
+      lidTri(g,img,src(i,j),src(i+1,j),src(i,j+1),dst(i,j),dst(i+1,j),dst(i,j+1));
+      lidTri(g,img,src(i+1,j+1),src(i,j+1),src(i+1,j),dst(i+1,j+1),dst(i,j+1),dst(i+1,j));
+    }
+  }
+  function lidDraw(){
+    var g=$('lid').getContext('2d'),h=lidLayer.getContext('2d'),i;
+    g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,1220,680);
+    if(!lidPhoto.complete||!lidPhoto.naturalWidth)return;
+    g.drawImage(lidPhoto,0,0,1220,680);
+    if(!lidTop)return;
+    h.setTransform(1,0,0,1,0,0);h.clearRect(0,0,1220,680);
+    for(i=0;i<3;i++)if(lidImgs[lidTop[i]]&&lidImgs[lidTop[i]].complete&&lidImgs[lidTop[i]].naturalWidth)lidSticker(h,lidTop[i],i);
+    /* dim the stickers a little so they sit in the room's light */
+    h.setTransform(1,0,0,1,0,0);h.globalCompositeOperation='source-atop';h.fillStyle='rgba(40,22,16,.2)';h.fillRect(0,0,1220,680);h.globalCompositeOperation='source-over';
+    g.drawImage(lidLayer,0,0);
   }
   function lid(top,ready){
-    var i,el,parts=[];
-    for(i=0;i<3;i++){
-      el=$('lid'+i);
-      if(!ready){el.hidden=true;continue}
-      el.src=src(top[i]);el.style.transform=lidMatrix(top[i],i);el.hidden=false;
-      parts.push(PLACES[i]+': '+NAMES[top[i]].replace(/^\d+\. /,''));
-    }
+    var parts=top.map(function(s,i){return PLACES[i]+': '+NAMES[s].replace(/^\d+\. /,'')});
+    lidTop=ready?top:null;
+    if(ready)top.forEach(function(s){if(!lidImgs[s]){lidImgs[s]=new Image();lidImgs[s].onload=lidDraw;lidImgs[s].src=src(s)}});
+    lidDraw();
     $('lidNote').textContent=ready?'Current top three, at about 27 mm tall. '+parts.join('; ')+'.':'The current top three will appear on the laptop once votes load.';
-    $('lid').setAttribute('aria-label',ready?'Laptop lid with the current top three stickers. '+parts.join('; ')+'.':'');
+    $('lid').setAttribute('aria-label','Back of a dark laptop on a red table'+(ready?', with the current top three stickers on its lid. '+parts.join('; ')+'.':'.'));
   }
-  function lidFit(){var w=$('lid').clientWidth;if(w)$('lidStage').style.transform='scale('+(w/1220)+')'}
-  window.addEventListener('resize',lidFit);lidFit();
+  lidPhoto.onload=lidDraw;lidPhoto.src='laptop.jpg';
   function render(values){
     var taps={},games=[],won=[],lost=[],voters={},i,k;
     values.forEach(function(v){
