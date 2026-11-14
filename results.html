@@ -11,6 +11,8 @@
 <style>
 /* The laptop picture with the top three stickers drawn on its lid. It is one canvas, so it scales like an image. */
 .lid{display:block;width:100%;height:auto;border-radius:14px;background:var(--card)}
+.sealed{background:var(--card);border-radius:14px;padding:18px 16px}
+a.btn{display:inline-flex;align-items:center;text-decoration:none}
 </style>
 </head>
 <body>
@@ -19,6 +21,12 @@
     <h1>HCRÜ sticker results: the final round</h1>
     <p class="lede">Ranking of the fifteen finalists. Each person counts once per pair. Stickers 6 to 15 were added later, so they have fewer matchups. <a href="round1.html">Round 1 results</a></p>
   </header>
+
+  <section class="stack-s sealed" id="sealed" hidden>
+    <h2>Results unlock at 9:00 pm Eastern tonight</h2>
+    <p>The order is sealed until voting closes, so nobody votes with the leader in mind. <span id="sealedLeft"></span></p>
+    <p><a class="btn solid" href="./">Vote now</a></p>
+  </section>
 
   <section class="stack-s" aria-label="Current top three on a laptop">
     <canvas class="lid" id="lid" width="1220" height="680" role="img" aria-label="Back of a dark laptop on a red table"></canvas>
@@ -30,7 +38,6 @@
       <p id="summary" class="status" role="status">Loading votes…</p>
       <button class="btn" id="refresh" type="button">Refresh</button>
     </div>
-    <p id="sealed" hidden>The order is sealed until <strong>9:00 pm Eastern tonight</strong>, so nobody votes with the leader in mind. <span id="sealedLeft"></span> Voting is still open: <a href="./">cast your picks</a>.</p>
     <div class="tablewrap" id="tablewrap">
       <table>
         <thead><tr><th>Rank</th><th>Sticker</th><th>Option</th><th class="num">Rating</th><th class="num">Won</th><th class="num">Lost</th><th class="num">Win rate</th></tr></thead>
